@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 错题教练 -- 错题分析报告</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --primary: #2C3E50;
+    --accent: #3498DB;
+    --success: #27AE60;
+    --warning: #F39C12;
+    --danger: #E74C3C;
+    --bg: #FAFAFA;
+    --card-bg: #FFFFFF;
+    --text: #2C3E50;
+    --text-secondary: #7F8C8D;
+    --border: #ECF0F1;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── Header ── */
+  .header {
+    background: linear-gradient(135deg, #2C3E50 0%, #34495E 100%);
+    color: #FFFFFF;
+    padding: 48px 40px;
+  }
+  .header h1 { font-size: 28px; font-weight: 600; letter-spacing: 0.5px; }
+  .header .meta { margin-top: 12px; font-size: 14px; opacity: 0.75; }
+  .header .meta span { margin-right: 32px; }
+
+  /* ── Container ── */
+  .container { max-width: 1100px; margin: 0 auto; padding: 40px 32px; }
+
+  /* ── Cards ── */
+  .card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 32px;
+    margin-bottom: 24px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  }
+  .card h2 {
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--primary);
+    margin-bottom: 24px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid var(--accent);
+  }
+  .card h3 {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--primary);
+    margin: 20px 0 12px;
+  }
+
+  /* ── Stat Grid ── */
+  .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; }
+  .stat-item {
+    text-align: center;
+    padding: 20px 16px;
+    background: var(--bg);
+    border-radius: 6px;
+  }
+  .stat-value { font-size: 32px; font-weight: 700; color: var(--accent); }
+  .stat-label { font-size: 13px; color: var(--text-secondary); margin-top: 4px; }
+
+  /* ── Chart Wrapper ── */
+  .chart-wrapper { max-width: 100%; margin: 16px 0; }
+  .chart-wrapper canvas { max-height: 320px; }
+  .chart-row { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  @media (max-width: 768px) { .chart-row { grid-template-columns: 1fr; } }
+
+  /* ── Mistake List ── */
+  .mistake-item {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 20px;
+    margin-bottom: 16px;
+    transition: box-shadow 0.2s;
+  }
+  .mistake-item:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+  .mistake-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+  .mistake-id { font-weight: 600; color: var(--primary); }
+  .mistake-subject {
+    font-size: 12px;
+    padding: 2px 10px;
+    border-radius: 12px;
+    background: #EBF5FB;
+    color: #2980B9;
+  }
+  .mistake-question {
+    background: var(--bg);
+    padding: 12px 16px;
+    border-radius: 4px;
+    font-size: 14px;
+    margin-bottom: 12px;
+    border-left: 3px solid var(--accent);
+  }
+  .mistake-analysis { font-size: 14px; color: var(--text-secondary); margin-bottom: 8px; }
+  .mistake-kp {
+    display: inline-block;
+    font-size: 12px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: #FDEBD0;
+    color: #E67E22;
+    margin-right: 6px;
+    margin-bottom: 6px;
+  }
+  .mistake-error-tag {
+    display: inline-block;
+    font-size: 12px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin-right: 6px;
+    margin-bottom: 6px;
+  }
+  .tag-concept { background: #FADBD8; color: #C0392B; }
+  .tag-calc { background: #D5F5E3; color: #1E8449; }
+  .tag-read { background: #D6EAF8; color: #2471A3; }
+  .tag-method { background: #E8DAEF; color: #6C3483; }
+  .tag-gap { background: #FCF3CF; color: #B7950B; }
+  .tag-format { background: #D5DBDB; color: #616A6B; }
+  .tag-psych { background: #FDEDEC; color: #922B21; }
+
+  .error-tag-classes {
+    "ERR_CONCEPT": "tag-concept",
+    "ERR_CALC": "tag-calc",
+    "ERR_READ": "tag-read",
+    "ERR_METHOD": "tag-method",
+    "ERR_GAP": "tag-gap",
+    "ERR_FORMAT": "tag-format",
+    "ERR_PSYCH": "tag-psych",
+  }
+
+  /* ── Schedule ── */
+  .schedule-timeline { position: relative; padding-left: 24px; }
+  .schedule-timeline::before {
+    content: "";
+    position: absolute;
+    left: 8px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--border);
+  }
+  .schedule-day {
+    position: relative;
+    margin-bottom: 12px;
+    padding: 12px 16px 12px 24px;
+    border-radius: 6px;
+    background: var(--bg);
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s;
+  }
+  .schedule-day:hover { background: #EBF5FB; }
+  .schedule-day:active { transform: scale(0.99); }
+  .schedule-day::before {
+    content: "";
+    position: absolute;
+    left: -20px;
+    top: 18px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 2px solid var(--card-bg);
+  }
+  .schedule-date { font-weight: 600; font-size: 14px; color: var(--primary); display: flex; align-items: center; gap: 8px; }
+  .schedule-date::after { content: "查看详情 →"; font-size: 12px; color: var(--accent); font-weight: 400; }
+  .schedule-items { font-size: 13px; color: var(--text-secondary); margin-top: 4px; }
+
+  /* ── Modal ── */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(44, 62, 80, 0.55);
+    z-index: 9999;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    animation: modalFadeIn 0.18s ease-out;
+  }
+  .modal-overlay.active { display: flex; }
+  @keyframes modalFadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+  .modal-box {
+    background: var(--card-bg);
+    border-radius: 10px;
+    max-width: 760px;
+    width: 100%;
+    max-height: 86vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+    animation: modalSlideUp 0.22s ease-out;
+  }
+  @keyframes modalSlideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 24px 28px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .modal-date { font-size: 22px; font-weight: 700; color: var(--primary); }
+  .modal-subtitle { font-size: 13px; color: var(--text-secondary); margin-top: 4px; }
+  .modal-close {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 6px 14px;
+    border-radius: 4px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .modal-close:hover { background: #EBF5FB; }
+
+  .modal-body {
+    padding: 20px 28px 28px;
+    overflow-y: auto;
+  }
+
+  .review-kp-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 12px 14px;
+    background: #FEF9E7;
+    border-radius: 6px;
+    margin-bottom: 18px;
+  }
+  .review-kp-chips .kp-chip-label {
+    font-size: 12px;
+    color: #B7950B;
+    font-weight: 600;
+    margin-right: 4px;
+  }
+  .review-kp-chip {
+    font-size: 12px;
+    padding: 2px 10px;
+    border-radius: 12px;
+    background: #FCF3CF;
+    color: #B7950B;
+  }
+
+  .review-item {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px;
+    margin-bottom: 14px;
+    background: #FCFCFD;
+  }
+  .review-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  .review-item-id { font-weight: 600; color: var(--accent); font-size: 14px; }
+  .review-item-question { font-size: 14px; color: var(--text); margin-bottom: 10px; line-height: 1.6; }
+  .review-item-analysis {
+    font-size: 13px;
+    color: var(--text-secondary);
+    background: var(--bg);
+    padding: 10px 12px;
+    border-left: 3px solid var(--warning);
+    border-radius: 0 4px 4px 0;
+    margin-bottom: 10px;
+    line-height: 1.6;
+  }
+  .review-item-variants-title {
+    font-size: 12px;
+    color: var(--accent);
+    font-weight: 600;
+    margin-top: 8px;
+    margin-bottom: 4px;
+  }
+  .review-variant {
+    font-size: 13px;
+    color: var(--text);
+    margin-bottom: 6px;
+    padding-left: 8px;
+    border-left: 2px solid #EBF5FB;
+  }
+  .review-variant-answer { color: var(--success); font-size: 12px; display: block; margin-top: 2px; }
+  .review-empty { text-align: center; color: var(--text-secondary); padding: 40px 0; font-size: 14px; }
+
+  /* ── Variant Exercises ── */
+  .variant-box {
+    background: #F8F9FA;
+    border-radius: 6px;
+    padding: 16px;
+    margin-top: 12px;
+  }
+  .variant-box .variant-label {
+    font-size: 12px;
+    color: var(--accent);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+  }
+
+  /* ── Footer ── */
+  .footer {
+    text-align: center;
+    padding: 32px;
+    color: var(--text-secondary);
+    font-size: 12px;
+    border-top: 1px solid var(--border);
+    margin-top: 40px;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>高等数学错题集分析报告</h1>
+  <div class="meta">
+    <span>科目：高等数学</span>
+    <span>学段：大学</span>
+    <span>生成时间：2026-07-16</span>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- Summary Stats -->
+  <div class="card">
+    <h2>总览</h2>
+    <div class="stat-grid">
+      <div class="stat-item">
+  <div class="stat-value">10</div>
+  <div class="stat-label">错题总数</div>
+</div>
+<div class="stat-item">
+  <div class="stat-value">10</div>
+  <div class="stat-label">涉及知识点</div>
+</div>
+<div class="stat-item">
+  <div class="stat-value">5</div>
+  <div class="stat-label">已安排复习轮次</div>
+</div>
+<div class="stat-item">
+  <div class="stat-value">30 天</div>
+  <div class="stat-label">覆盖周期</div>
+</div>
+
+    </div>
+  </div>
+
+  <!-- Error Distribution Chart -->
+  <div class="card">
+    <h2>错误类型分布</h2>
+    <div class="chart-row">
+      <div class="chart-wrapper">
+        <canvas id="errorPieChart"></canvas>
+      </div>
+      <div class="chart-wrapper">
+        <canvas id="errorBarChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Knowledge Point Analysis -->
+  <div class="card">
+    <h2>知识点分析</h2>
+    <div class="chart-row">
+      <div class="chart-wrapper">
+        <canvas id="kpBarChart"></canvas>
+      </div>
+      <div class="chart-wrapper">
+        <canvas id="kpRadarChart"></canvas>
+      </div>
+    </div>
+    <h3>薄弱知识点</h3>
+    <table style="width:100%;border-collapse:collapse;font-size:14px;"><tr style="background:#F8F9FA;"><th style="padding:10px;text-align:left;border-bottom:2px solid #ECF0F1;">知识点</th><th style="padding:10px;text-align:center;border-bottom:2px solid #ECF0F1;">错误次数</th><th style="padding:10px;text-align:left;border-bottom:2px solid #ECF0F1;">风险等级</th></tr><tr><td style="padding:10px;border-bottom:1px solid #ECF0F1;">极限与等价无穷小</td><td style="padding:10px;text-align:center;border-bottom:1px solid #ECF0F1;">1</td><td style="padding:10px;border-bottom:1px solid #ECF0F1;color:#27AE60;font-weight:600;">低</td></tr><tr><td style="padding:10px;border-bottom:1px solid #ECF0F1;">数列极限与洛必达法则</td><td style="padding:10px;text-align:center;border-bottom:1px solid #ECF0F1;">1</td><td style="padding:10px;border-bottom:1px solid #ECF0F1;color:#27AE60;font-weight:600;">低</td></tr><tr><td style="padding:10px;border-bottom:1px solid #ECF0F1;">导数定义与分段函数可导性</td><td style="padding:10px;text-align:center;border-bottom:1px solid #ECF0F1;">1</td><td style="padding:10px;border-bottom:1px solid #ECF0F1;color:#27AE60;font-weight:600;">低</td></tr><tr><td style="padding:10px;border-bottom:1px solid #ECF0F1;">中值定理（罗尔定理）</td><td style="padding:10px;text-align:center;border-bottom:1px solid #ECF0F1;">1</td><td style="padding:10px;border-bottom:1px solid #ECF0F1;color:#27AE60;font-weight:600;">低</td></tr><tr><td style="padding:10px;border-bottom:1px solid #ECF0F1;">定积分对称性</td><td style="padding:10px;text-align:center;border-bottom:1px solid #ECF0F1;">1</td><td style="padding:10px;border-bottom:1px solid #ECF0F1;color:#27AE60;font-weight:600;">低</td></tr><tr><td style="padding:10px;border-bottom:1px solid #ECF0F1;">反常积分收敛性判别</td><td style="padding:10px;text-align:center;border-bottom:1px solid #ECF0F1;">1</td><td style="padding:10px;border-bottom:1px solid #ECF0F1;color:#27AE60;font-weight:600;">低</td></tr><tr><td style="padding:10px;border-bottom:1px solid #ECF0F1;">多元函数可微性条件</td><td style="padding:10px;text-align:center;border-bottom:1px solid #ECF0F1;">1</td><td style="padding:10px;border-bottom:1px solid #ECF0F1;color:#27AE60;font-weight:600;">低</td></tr><tr><td style="padding:10px;border-bottom:1px solid #ECF0F1;">重积分交换次序</td><td style="padding:10px;text-align:center;border-bottom:1px solid #ECF0F1;">1</td><td style="padding:10px;border-bottom:1px solid #ECF0F1;color:#27AE60;font-weight:600;">低</td></tr><tr><td style="padding:10px;border-bottom:1px solid #ECF0F1;">幂级数收敛域</td><td style="padding:10px;text-align:center;border-bottom:1px solid #ECF0F1;">1</td><td style="padding:10px;border-bottom:1px solid #ECF0F1;color:#27AE60;font-weight:600;">低</td></tr><tr><td style="padding:10px;border-bottom:1px solid #ECF0F1;">一阶微分方程解法选择</td><td style="padding:10px;text-align:center;border-bottom:1px solid #ECF0F1;">1</td><td style="padding:10px;border-bottom:1px solid #ECF0F1;color:#27AE60;font-weight:600;">低</td></tr></table>
+  </div>
+
+  <!-- Forgetting Curve -->
+  <div class="card">
+    <h2>记忆保持曲线</h2>
+    <div class="chart-wrapper">
+      <canvas id="retentionChart"></canvas>
+    </div>
+    <p style="font-size:13px;color:var(--text-secondary);margin-top:12px;">
+      基于艾宾浩斯遗忘曲线，并结合 SM-2 难度系数动态调整。在计划的时间节点复习，记忆保持率可维持在 85% 以上。
+    </p>
+  </div>
+
+  <!-- Mistake Detail -->
+  <div class="card">
+    <h2>错题详情</h2>
+    <div class="mistake-item" id="mistake-Q001">
+  <div class="mistake-header">
+    <span class="mistake-id">#Q001</span>
+    <span class="mistake-subject">Math</span>
+  </div>
+  <div class="mistake-question">求 $\displaystyle\lim_{x\to 0}\frac{\tan x-\sin x}{x^3}$。</div>
+  <div class="mistake-analysis"><strong>错因分析：</strong> 等价无穷小替换**只能在乘除因子中整体替换**。本题分子是"相减"的差式，直接替换会把高阶小量全部抹掉，导致结果错误。这里恰好 $x-x=0$，掩盖了真实极限。</div>
+  <div style="margin-top:8px;"><span class="mistake-kp">极限与等价无穷小</span></div>
+  <div style="margin-top:4px;"><span class="mistake-error-tag tag-method">方法错误</span><span class="mistake-error-tag tag-concept">概念混淆</span></div>
+  <div class="variant-box"><div class="variant-label">同类练习题</div><p style="margin-bottom:8px;font-size:14px;"><strong>1.</strong> 求 lim_{x→0} (sin x - arctan x) / x³<br><span style="color:var(--success);font-size:13px;">参考答案：用泰勒展开: sin x = x - x³/6 + o(x³), arctan x = x - x³/3 + o(x³), 差值 = x³/6 + o(x³), 极限为 1/6。</span></p><p style="margin-bottom:8px;font-size:14px;"><strong>2.</strong> 求 lim_{x→0} (eˣ - cos x) / x<br><span style="color:var(--success);font-size:13px;">参考答案：差式不可分别替换。eˣ ≈ 1+x+x²/2, cos x ≈ 1-x²/2, 差为 x + o(x), 极限为 1。</span></p></div>
+</div>
+<div class="mistake-item" id="mistake-Q002">
+  <div class="mistake-header">
+    <span class="mistake-id">#Q002</span>
+    <span class="mistake-subject">Math</span>
+  </div>
+  <div class="mistake-question">设 $a_n=n(\sqrt[n]{a}-1)\,(a>0)$，求 $\displaystyle\lim_{n\to\infty}a_n$。</div>
+  <div class="mistake-analysis"><strong>错因分析：</strong> 洛必达法则要求函数在某区间上**可导且为连续变量**。数列 $n$ 是离散的，不能直接对离散下标求导。本题"蒙对"了结果，但过程不严谨，遇到真正需要这一步的题目就会出错。</div>
+  <div style="margin-top:8px;"><span class="mistake-kp">数列极限与洛必达法则</span></div>
+  <div style="margin-top:4px;"><span class="mistake-error-tag tag-method">方法错误</span></div>
+  <div class="variant-box"><div class="variant-label">同类练习题</div><p style="margin-bottom:8px;font-size:14px;"><strong>1.</strong> 求 lim_{n→∞} n² · (1 - cos(1/n))<br><span style="color:var(--success);font-size:13px;">参考答案：令 t = 1/n → 0, 化为 lim_{t→0} (1-cos t)/t² = 1/2。</span></p><p style="margin-bottom:8px;font-size:14px;"><strong>2.</strong> 求 lim_{n→∞} n · sin(1/n)<br><span style="color:var(--success);font-size:13px;">参考答案：令 t = 1/n → 0, 化为 lim_{t→0} sin t / t = 1。</span></p></div>
+</div>
+<div class="mistake-item" id="mistake-Q003">
+  <div class="mistake-header">
+    <span class="mistake-id">#Q003</span>
+    <span class="mistake-subject">Math</span>
+  </div>
+  <div class="mistake-question">设 $f(x)=\begin{cases}x^2\sin\frac1x,&x\neq 0\\0,&x=0\end{cases}$，判断 $f(x)$ 在 $x=0$ 处是否可导。</div>
+  <div class="mistake-analysis"><strong>错因分析：</strong> 在分界点处，**必须先回到导数定义**计算，不能直接套用非分界点处的导函数表达式。上面那个 $f'(x)$ 在 $x\to 0$ 时确实发散，但它描述的是 $x\neq0$ 处的导数，与 $x=0$ 处是否可导无关。</div>
+  <div style="margin-top:8px;"><span class="mistake-kp">导数定义与分段函数可导性</span></div>
+  <div style="margin-top:4px;"><span class="mistake-error-tag tag-method">方法错误</span><span class="mistake-error-tag tag-concept">概念混淆</span></div>
+  <div class="variant-box"><div class="variant-label">同类练习题</div><p style="margin-bottom:8px;font-size:14px;"><strong>1.</strong> f(x) = x³·cos(1/x) (x≠0), f(0)=0, 判断在 x=0 处是否可导？<br><span style="color:var(--success);font-size:13px;">参考答案：按定义 f'(0) = lim_{x→0} x²·cos(1/x) = 0（无穷小乘有界）, 可导。</span></p><p style="margin-bottom:8px;font-size:14px;"><strong>2.</strong> f(x) = |x|, 判断在 x=0 处是否可导？<br><span style="color:var(--success);font-size:13px;">参考答案：左右导数分别为 1 和 -1, 不等, 不可导。</span></p></div>
+</div>
+<div class="mistake-item" id="mistake-Q004">
+  <div class="mistake-header">
+    <span class="mistake-id">#Q004</span>
+    <span class="mistake-subject">Math</span>
+  </div>
+  <div class="mistake-question">证明存在 $\xi\in(0,1)$ 使 $f'(\xi)=0$，其中 $f(x)=\sqrt{x}\,(0\le x\le 1)$。</div>
+  <div class="mistake-analysis"><strong>错因分析：</strong> 罗尔定理要求 $f(a)=f(b)$ 且 $f$ 在 $[a,b]$ 连续、$(a,b)$ 可导。本题 $f(0)=0\neq f(1)=1$，**端点值根本不相等**，罗尔定理不适用；且 $f$ 在 $x=0$ 处导数不存在（切线垂直）。结论本身也不成立（$f'(x)=\frac1{2\sqrt x}>0$）。</div>
+  <div style="margin-top:8px;"><span class="mistake-kp">中值定理（罗尔定理）</span></div>
+  <div style="margin-top:4px;"><span class="mistake-error-tag tag-method">方法错误</span><span class="mistake-error-tag tag-concept">概念混淆</span></div>
+  <div class="variant-box"><div class="variant-label">同类练习题</div><p style="margin-bottom:8px;font-size:14px;"><strong>1.</strong> f(x) = x² - 2x 在 [0,2] 上, 验证罗尔定理是否适用？<br><span style="color:var(--success);font-size:13px;">参考答案：f 连续可导, f(0)=0=f(2), 条件满足。f'(x)=2x-2=0 得 ξ=1。</span></p><p style="margin-bottom:8px;font-size:14px;"><strong>2.</strong> f(x) = |x-1| 在 [0,2] 上, 罗尔定理是否适用？<br><span style="color:var(--success);font-size:13px;">参考答案：在 x=1 处不可导（尖点）, 罗尔定理不适用。</span></p></div>
+</div>
+<div class="mistake-item" id="mistake-Q005">
+  <div class="mistake-header">
+    <span class="mistake-id">#Q005</span>
+    <span class="mistake-subject">Math</span>
+  </div>
+  <div class="mistake-question">计算 $\displaystyle\int_{-1}^{2}x^3\,dx$。</div>
+  <div class="mistake-analysis"><strong>错因分析：</strong> 奇偶函数在对称区间上的积分性质，要求**积分区间关于原点对称**（即 $[-a,a]$）。本题区间是 $[-1,2]$，并不对称，不能直接套用。</div>
+  <div style="margin-top:8px;"><span class="mistake-kp">定积分对称性</span></div>
+  <div style="margin-top:4px;"><span class="mistake-error-tag tag-read">审题不清</span><span class="mistake-error-tag tag-method">方法错误</span></div>
+  <div class="variant-box"><div class="variant-label">同类练习题</div><p style="margin-bottom:8px;font-size:14px;"><strong>1.</strong> 计算 ∫₋₂² x⁵ dx<br><span style="color:var(--success);font-size:13px;">参考答案：区间对称 + 奇函数, 积分为 0。</span></p><p style="margin-bottom:8px;font-size:14px;"><strong>2.</strong> 计算 ∫₋₃¹ x² dx<br><span style="color:var(--success);font-size:13px;">参考答案：区间不对称, 直接计算得 28/3。</span></p></div>
+</div>
+<div class="mistake-item" id="mistake-Q006">
+  <div class="mistake-header">
+    <span class="mistake-id">#Q006</span>
+    <span class="mistake-subject">Math</span>
+  </div>
+  <div class="mistake-question">判断 $\displaystyle\int_{1}^{+\infty}\frac{1}{x^p}\,dx$ 的收敛性。</div>
+  <div class="mistake-analysis"><strong>错因分析：</strong> "被积函数趋于 0"**只是必要条件，远非充分条件**。趋于 0 的速度不够快，积分仍可能发散（如 $p=1$ 时 $\int_1^\infty \frac1x dx=\ln x\to\infty$）。</div>
+  <div style="margin-top:8px;"><span class="mistake-kp">反常积分收敛性判别</span></div>
+  <div style="margin-top:4px;"><span class="mistake-error-tag tag-concept">概念混淆</span></div>
+  <div class="variant-box"><div class="variant-label">同类练习题</div><p style="margin-bottom:8px;font-size:14px;"><strong>1.</strong> 判断 ∫₁^∞ ln x / x² dx 的收敛性<br><span style="color:var(--success);font-size:13px;">参考答案：当 x 充分大时 ln x/x² ≤ 1/x^{1.5}, p=1.5>1, 由比较判别法知收敛。</span></p><p style="margin-bottom:8px;font-size:14px;"><strong>2.</strong> 判断 ∫₀¹ 1/x^q dx 的收敛性（瑕积分）<br><span style="color:var(--success);font-size:13px;">参考答案：q<1 收敛, q≥1 发散。</span></p></div>
+</div>
+<div class="mistake-item" id="mistake-Q007">
+  <div class="mistake-header">
+    <span class="mistake-id">#Q007</span>
+    <span class="mistake-subject">Math</span>
+  </div>
+  <div class="mistake-question">已知 $z=f(x,y)$ 在 $(x_0,y_0)$ 处两个偏导数 $f_x,f_y$ 都存在，能否推出 $f$ 在该点可微？</div>
+  <div class="mistake-analysis"><strong>错因分析：</strong> 一元函数中"可导 ⇔ 可微"，但多元函数中**偏导数存在既推不出连续，也推不出可微**。可微要求全增量能写成 $\Delta z=A\Delta x+B\Delta y+o(\rho)$，比"两个方向偏导存在"强得多。</div>
+  <div style="margin-top:8px;"><span class="mistake-kp">多元函数可微性条件</span></div>
+  <div style="margin-top:4px;"><span class="mistake-error-tag tag-concept">概念混淆</span></div>
+  <div class="variant-box"><div class="variant-label">同类练习题</div><p style="margin-bottom:8px;font-size:14px;"><strong>1.</strong> f(x,y) = xy/(x²+y²) ((x,y)≠(0,0)), f(0,0)=0, 在(0,0)处偏导是否存在？是否可微？<br><span style="color:var(--success);font-size:13px;">参考答案：偏导存在（均为0）, 但 f 在 (0,0) 不连续, 故不可微。</span></p><p style="margin-bottom:8px;font-size:14px;"><strong>2.</strong> 偏导数连续是可微的必要条件吗？<br><span style="color:var(--success);font-size:13px;">参考答案：不是。偏导数连续是可微的充分条件, 非必要。存在可微但偏导数不连续的函数。</span></p></div>
+</div>
+<div class="mistake-item" id="mistake-Q008">
+  <div class="mistake-header">
+    <span class="mistake-id">#Q008</span>
+    <span class="mistake-subject">Math</span>
+  </div>
+  <div class="mistake-question">交换 $\displaystyle\int_{0}^{1}dx\int_{x}^{1}f(x,y)\,dy$ 的积分次序。</div>
+  <div class="mistake-analysis"><strong>错因分析：</strong> 交换次序必须先由原式画出积分区域 $D:\ 0\le x\le 1,\ x\le y\le 1$，再从 $y$ 的角度看 $x$ 的范围。原错解没有真正重新确定区域边界。</div>
+  <div style="margin-top:8px;"><span class="mistake-kp">重积分交换次序</span></div>
+  <div style="margin-top:4px;"><span class="mistake-error-tag tag-method">方法错误</span></div>
+  <div class="variant-box"><div class="variant-label">同类练习题</div><p style="margin-bottom:8px;font-size:14px;"><strong>1.</strong> 交换 ∫₀² dx ∫ₓ₂²ˣ f(x,y) dy 的积分次序<br><span style="color:var(--success);font-size:13px;">参考答案：画图后, 交换为 ∫₀⁴ dy ∫_{max(0,y/2)}^{√y} f(x,y) dx, 需分段。</span></p><p style="margin-bottom:8px;font-size:14px;"><strong>2.</strong> 交换 ∫₀¹ dy ∫₀ʸ f(x,y) dx 的积分次序<br><span style="color:var(--success);font-size:13px;">参考答案：交换后: ∫₀¹ dx ∫ₓ¹ f(x,y) dy。</span></p></div>
+</div>
+<div class="mistake-item" id="mistake-Q009">
+  <div class="mistake-header">
+    <span class="mistake-id">#Q009</span>
+    <span class="mistake-subject">Math</span>
+  </div>
+  <div class="mistake-question">求幂级数 $\displaystyle\sum_{n=1}^{\infty}\frac{x^n}{n}$ 的收敛域。</div>
+  <div class="mistake-analysis"><strong>错因分析：</strong> 收敛半径只给出**开区间** $(-R,R)$。**端点 $x=\pm R$ 必须单独代入判断**，不能想当然地排除或包含。</div>
+  <div style="margin-top:8px;"><span class="mistake-kp">幂级数收敛域</span></div>
+  <div style="margin-top:4px;"><span class="mistake-error-tag tag-gap">知识盲区</span></div>
+  <div class="variant-box"><div class="variant-label">同类练习题</div><p style="margin-bottom:8px;font-size:14px;"><strong>1.</strong> 求 ∑_{n=1}^∞ x^n/n² 的收敛域<br><span style="color:var(--success);font-size:13px;">参考答案：R=1。两端点均收敛（p-级数 p=2>1）, 收敛域 [-1,1]。</span></p><p style="margin-bottom:8px;font-size:14px;"><strong>2.</strong> 求 ∑_{n=1}^∞ n·x^n 的收敛域<br><span style="color:var(--success);font-size:13px;">参考答案：R=1。两端点通项不趋于零均发散, 收敛域 (-1,1)。</span></p></div>
+</div>
+<div class="mistake-item" id="mistake-Q010">
+  <div class="mistake-header">
+    <span class="mistake-id">#Q010</span>
+    <span class="mistake-subject">Math</span>
+  </div>
+  <div class="mistake-question">解微分方程 $\displaystyle\frac{dy}{dx}=\frac{y}{x+\ln y}$（$y>0$）。</div>
+  <div class="mistake-analysis"><strong>错因分析：</strong> 本题从 $y$ 角度看不是线性、也不是可分离；但若**把 $x$ 视为 $y$ 的函数**，方程化为 $$\frac{dx}{dy}=\frac{x+\ln y}{y}=\frac1y x+\frac{\ln y}{y},$$ 这正是关于 $x$ 的**一阶线性微分方程**（未知函数是 $x(y)$）。</div>
+  <div style="margin-top:8px;"><span class="mistake-kp">一阶微分方程解法选择</span></div>
+  <div style="margin-top:4px;"><span class="mistake-error-tag tag-method">方法错误</span><span class="mistake-error-tag tag-concept">概念混淆</span></div>
+  <div class="variant-box"><div class="variant-label">同类练习题</div><p style="margin-bottom:8px;font-size:14px;"><strong>1.</strong> 解 dy/dx = 1/(x+y)<br><span style="color:var(--success);font-size:13px;">参考答案：令 u = x+y, 化为可分离变量 u/(u+1) du = dx。</span></p><p style="margin-bottom:8px;font-size:14px;"><strong>2.</strong> 解 (y²-6x)·dy/dx + 2y = 0<br><span style="color:var(--success);font-size:13px;">参考答案：把 x 当未知函数, 化为一阶线性, 解得 x = C·y³ + y²/2。</span></p></div>
+</div>
+
+  </div>
+
+  <!-- Review Schedule -->
+  <div class="card">
+    <h2>复习计划</h2>
+    <div class="stat-grid" style="margin-bottom:24px;">
+      <div class="stat-item">
+  <div class="stat-value">9</div>
+  <div class="stat-label">总复习次数</div>
+</div>
+<div class="stat-item">
+  <div class="stat-value">2-3</div>
+  <div class="stat-label">平均每日题量</div>
+</div>
+<div class="stat-item">
+  <div class="stat-value">2026-07-16</div>
+  <div class="stat-label">复习开始日期</div>
+</div>
+<div class="stat-item">
+  <div class="stat-value">2026-08-15</div>
+  <div class="stat-label">复习截止日期</div>
+</div>
+
+    </div>
+    <h3>即将复习（点击日期查看当天复习内容）</h3>
+    <div class="schedule-timeline">
+      <div class="schedule-day" onclick="openReviewModal(0)">
+  <div class="schedule-date">2026-07-16 <span style="color:var(--text-secondary);font-weight:400;font-size:12px;">（第 0 天）</span></div>
+  <div class="schedule-items">Q001-Q010（初次分析）</div>
+</div>
+<div class="schedule-day" onclick="openReviewModal(1)">
+  <div class="schedule-date">2026-07-17 <span style="color:var(--text-secondary);font-weight:400;font-size:12px;">（第 1 天）</span></div>
+  <div class="schedule-items">Q005, Q009（易错题，先复习巩固）</div>
+</div>
+<div class="schedule-day" onclick="openReviewModal(2)">
+  <div class="schedule-date">2026-07-18 <span style="color:var(--text-secondary);font-weight:400;font-size:12px;">（第 2 天）</span></div>
+  <div class="schedule-items">Q006, Q007（概念混淆类，加深理解）</div>
+</div>
+<div class="schedule-day" onclick="openReviewModal(3)">
+  <div class="schedule-date">2026-07-19 <span style="color:var(--text-secondary);font-weight:400;font-size:12px;">（第 3 天）</span></div>
+  <div class="schedule-items">Q001, Q002, Q003（方法错误类，重做变式题）</div>
+</div>
+<div class="schedule-day" onclick="openReviewModal(4)">
+  <div class="schedule-date">2026-07-21 <span style="color:var(--text-secondary);font-weight:400;font-size:12px;">（第 5 天）</span></div>
+  <div class="schedule-items">Q004, Q008, Q010（中值定理/交换次序/微分方程）</div>
+</div>
+<div class="schedule-day" onclick="openReviewModal(5)">
+  <div class="schedule-date">2026-07-24 <span style="color:var(--text-secondary);font-weight:400;font-size:12px;">（第 8 天）</span></div>
+  <div class="schedule-items">全部10题（第一轮全面复习 + 变式题练习）</div>
+</div>
+<div class="schedule-day" onclick="openReviewModal(6)">
+  <div class="schedule-date">2026-07-31 <span style="color:var(--text-secondary);font-weight:400;font-size:12px;">（第 15 天）</span></div>
+  <div class="schedule-items">Q006, Q007, Q010（难度较高题目重点复习）</div>
+</div>
+<div class="schedule-day" onclick="openReviewModal(7)">
+  <div class="schedule-date">2026-08-07 <span style="color:var(--text-secondary);font-weight:400;font-size:12px;">（第 22 天）</span></div>
+  <div class="schedule-items">全部10题（第二轮查漏补缺）</div>
+</div>
+<div class="schedule-day" onclick="openReviewModal(8)">
+  <div class="schedule-date">2026-08-15 <span style="color:var(--text-secondary);font-weight:400;font-size:12px;">（第 30 天）</span></div>
+  <div class="schedule-items">全部10题（终轮复习，确保掌握）</div>
+</div>
+
+    </div>
+  </div>
+
+  <!-- Improvement Suggestions -->
+  <div class="card">
+    <h2>改进建议</h2>
+    <div style="border-left:3px solid var(--danger);padding:12px 16px;margin-bottom:12px;background:var(--bg);border-radius:0 6px 6px 0;">
+  <strong style="color:var(--danger);">建立条件检查的解题习惯</strong>
+  <p style="margin-top:4px;font-size:14px;color:var(--text-secondary);">Q004（中值定理）、Q005（对称性积分）、Q006（反常积分收敛）的根本问题都是在使用定理/性质前没有逐条验证前提条件。建议做题时先用几行写出定理的前提条件, 逐条打勾确认后再使用。</p>
+</div>
+<div style="border-left:3px solid var(--danger);padding:12px 16px;margin-bottom:12px;background:var(--bg);border-radius:0 6px 6px 0;">
+  <strong style="color:var(--danger);">差式极限优先用泰勒展开</strong>
+  <p style="margin-top:4px;font-size:14px;color:var(--text-secondary);">Q001（等价无穷小差式）是最典型的差式替换陷阱。建议养成习惯：遇到 0/0 型差式极限, 优先想到泰勒展开到足够高阶, 而非盲目使用等价无穷小替换。</p>
+</div>
+<div style="border-left:3px solid var(--danger);padding:12px 16px;margin-bottom:12px;background:var(--bg);border-radius:0 6px 6px 0;">
+  <strong style="color:var(--danger);">分段函数分界点回归定义</strong>
+  <p style="margin-top:4px;font-size:14px;color:var(--text-secondary);">Q003（分段函数可导性）的错误源于直接用导数公式而非定义。涉及分段函数分界点、绝对值函数尖点、max/min 函数的可导性问题时, 强制先写出导数定义的差商极限形式。</p>
+</div>
+<div style="border-left:3px solid var(--warning);padding:12px 16px;margin-bottom:12px;background:var(--bg);border-radius:0 6px 6px 0;">
+  <strong style="color:var(--warning);">多解思维：卡住时换视角</strong>
+  <p style="margin-top:4px;font-size:14px;color:var(--text-secondary);">Q010（微分方程）展示了一个重要策略：当从 y 的角度无法求解时, 尝试把 x 当未知函数。在交换积分次序（Q008）、换元等场景中, 要培养多角度思考的习惯。</p>
+</div>
+<div style="border-left:3px solid var(--warning);padding:12px 16px;margin-bottom:12px;background:var(--bg);border-radius:0 6px 6px 0;">
+  <strong style="color:var(--warning);">端点检查不能忘记</strong>
+  <p style="margin-top:4px;font-size:14px;color:var(--text-secondary);">Q009（幂级数收敛域）漏掉端点判断是幂级数最常见的失分模式。建议在求出收敛半径 R 后, 强制写一行端点检查：x=R 和 x=-R 各代入判断。</p>
+</div>
+<div style="border-left:3px solid var(--warning);padding:12px 16px;margin-bottom:12px;background:var(--bg);border-radius:0 6px 6px 0;">
+  <strong style="color:var(--warning);">数列极限先换元再处理</strong>
+  <p style="margin-top:4px;font-size:14px;color:var(--text-secondary);">Q002（数列极限洛必达）错误地直接对离散变量求导。建议形成固定流程：数列极限题目, 第一步写 t=1/n 换元转化为函数极限, 再决定用洛必达/泰勒/等价替换。</p>
+</div>
+<div style="border-left:3px solid var(--warning);padding:12px 16px;margin-bottom:12px;background:var(--bg);border-radius:0 6px 6px 0;">
+  <strong style="color:var(--warning);">多元微分逻辑链要理清</strong>
+  <p style="margin-top:4px;font-size:14px;color:var(--text-secondary);">Q007（多元可微条件）混淆了一元和多元的微分类似性。建议画逻辑关系图：偏导连续 → 可微 → (偏导存在+函数连续), 每个箭头单向不可逆, 配合反例加深记忆。</p>
+</div>
+<div style="border-left:3px solid var(--success);padding:12px 16px;margin-bottom:12px;background:var(--bg);border-radius:0 6px 6px 0;">
+  <strong style="color:var(--success);">重积分换序的标准流程</strong>
+  <p style="margin-top:4px;font-size:14px;color:var(--text-secondary);">Q008（交换积分次序）的画域再定限是最基本的动作要求。养成三步流程：由积分限写出区域不等式 → 在坐标系中画出区域 → 从新积分变量角度重写限。缺一不可。</p>
+</div>
+
+  </div>
+
+</div>
+
+<!-- Review Detail Modal -->
+<div class="modal-overlay" id="reviewModal" onclick="closeModal(event)">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div>
+        <div class="modal-date" id="modalDate">2026-07-16</div>
+        <div class="modal-subtitle" id="modalSubtitle">复习内容预览</div>
+      </div>
+      <button class="modal-close" onclick="closeModal()" aria-label="关闭">关闭</button>
+    </div>
+    <div class="modal-body" id="modalBody">
+      <!-- Filled by JS -->
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  <p>由 AI 错题教练 生成 · 由 WorkBuddy 提供技术支持</p>
+  <p style="margin-top:8px;">
+    管理错题集：在命令行执行 <code>python scripts/mistake_webui.py --collection COLLECTION.json --port 5000</code>，然后打开浏览器访问管理界面，即可添加、导入、删除错题。
+  </p>
+</div>
+
+<script>
+
+// Review detail data (injected by Python)
+window.__REVIEW_DATA__ = {
+  schedule: [{"date": "2026-07-16", "day": 0, "items": "Q001-Q010（初次分析）"}, {"date": "2026-07-17", "day": 1, "items": "Q005, Q009（易错题，先复习巩固）"}, {"date": "2026-07-18", "day": 2, "items": "Q006, Q007（概念混淆类，加深理解）"}, {"date": "2026-07-19", "day": 3, "items": "Q001, Q002, Q003（方法错误类，重做变式题）"}, {"date": "2026-07-21", "day": 5, "items": "Q004, Q008, Q010（中值定理/交换次序/微分方程）"}, {"date": "2026-07-24", "day": 8, "items": "全部10题（第一轮全面复习 + 变式题练习）"}, {"date": "2026-07-31", "day": 15, "items": "Q006, Q007, Q010（难度较高题目重点复习）"}, {"date": "2026-08-07", "day": 22, "items": "全部10题（第二轮查漏补缺）"}, {"date": "2026-08-15", "day": 30, "items": "全部10题（终轮复习，确保掌握）"}],
+  mistakes: [{"id": "Q001", "subject": "Math", "question": "求 $\\displaystyle\\lim_{x\\to 0}\\frac{\\tan x-\\sin x}{x^3}$。", "analysis": "等价无穷小替换**只能在乘除因子中整体替换**。本题分子是\"相减\"的差式，直接替换会把高阶小量全部抹掉，导致结果错误。这里恰好 $x-x=0$，掩盖了真实极限。", "knowledge_points": [{"kp_id": "UNI_MATH_LIMIT_EQ", "name": "极限与等价无穷小"}], "error_types": ["ERR_METHOD", "ERR_CONCEPT"], "variants": [{"question": "求 lim_{x→0} (sin x - arctan x) / x³", "answer": "用泰勒展开: sin x = x - x³/6 + o(x³), arctan x = x - x³/3 + o(x³), 差值 = x³/6 + o(x³), 极限为 1/6。"}, {"question": "求 lim_{x→0} (eˣ - cos x) / x", "answer": "差式不可分别替换。eˣ ≈ 1+x+x²/2, cos x ≈ 1-x²/2, 差为 x + o(x), 极限为 1。"}]}, {"id": "Q002", "subject": "Math", "question": "设 $a_n=n(\\sqrt[n]{a}-1)\\,(a>0)$，求 $\\displaystyle\\lim_{n\\to\\infty}a_n$。", "analysis": "洛必达法则要求函数在某区间上**可导且为连续变量**。数列 $n$ 是离散的，不能直接对离散下标求导。本题\"蒙对\"了结果，但过程不严谨，遇到真正需要这一步的题目就会出错。", "knowledge_points": [{"kp_id": "UNI_MATH_SEQ_LIMIT", "name": "数列极限与洛必达法则"}], "error_types": ["ERR_METHOD"], "variants": [{"question": "求 lim_{n→∞} n² · (1 - cos(1/n))", "answer": "令 t = 1/n → 0, 化为 lim_{t→0} (1-cos t)/t² = 1/2。"}, {"question": "求 lim_{n→∞} n · sin(1/n)", "answer": "令 t = 1/n → 0, 化为 lim_{t→0} sin t / t = 1。"}]}, {"id": "Q003", "subject": "Math", "question": "设 $f(x)=\\begin{cases}x^2\\sin\\frac1x,&x\\neq 0\\\\0,&x=0\\end{cases}$，判断 $f(x)$ 在 $x=0$ 处是否可导。", "analysis": "在分界点处，**必须先回到导数定义**计算，不能直接套用非分界点处的导函数表达式。上面那个 $f'(x)$ 在 $x\\to 0$ 时确实发散，但它描述的是 $x\\neq0$ 处的导数，与 $x=0$ 处是否可导无关。", "knowledge_points": [{"kp_id": "UNI_MATH_DERIV_DEF", "name": "导数定义与分段函数可导性"}], "error_types": ["ERR_METHOD", "ERR_CONCEPT"], "variants": [{"question": "f(x) = x³·cos(1/x) (x≠0), f(0)=0, 判断在 x=0 处是否可导？", "answer": "按定义 f'(0) = lim_{x→0} x²·cos(1/x) = 0（无穷小乘有界）, 可导。"}, {"question": "f(x) = |x|, 判断在 x=0 处是否可导？", "answer": "左右导数分别为 1 和 -1, 不等, 不可导。"}]}, {"id": "Q004", "subject": "Math", "question": "证明存在 $\\xi\\in(0,1)$ 使 $f'(\\xi)=0$，其中 $f(x)=\\sqrt{x}\\,(0\\le x\\le 1)$。", "analysis": "罗尔定理要求 $f(a)=f(b)$ 且 $f$ 在 $[a,b]$ 连续、$(a,b)$ 可导。本题 $f(0)=0\\neq f(1)=1$，**端点值根本不相等**，罗尔定理不适用；且 $f$ 在 $x=0$ 处导数不存在（切线垂直）。结论本身也不成立（$f'(x)=\\frac1{2\\sqrt x}>0$）。", "knowledge_points": [{"kp_id": "UNI_MATH_MVT", "name": "中值定理（罗尔定理）"}], "error_types": ["ERR_METHOD", "ERR_CONCEPT"], "variants": [{"question": "f(x) = x² - 2x 在 [0,2] 上, 验证罗尔定理是否适用？", "answer": "f 连续可导, f(0)=0=f(2), 条件满足。f'(x)=2x-2=0 得 ξ=1。"}, {"question": "f(x) = |x-1| 在 [0,2] 上, 罗尔定理是否适用？", "answer": "在 x=1 处不可导（尖点）, 罗尔定理不适用。"}]}, {"id": "Q005", "subject": "Math", "question": "计算 $\\displaystyle\\int_{-1}^{2}x^3\\,dx$。", "analysis": "奇偶函数在对称区间上的积分性质，要求**积分区间关于原点对称**（即 $[-a,a]$）。本题区间是 $[-1,2]$，并不对称，不能直接套用。", "knowledge_points": [{"kp_id": "UNI_MATH_DEFINT_SYM", "name": "定积分对称性"}], "error_types": ["ERR_READ", "ERR_METHOD"], "variants": [{"question": "计算 ∫₋₂² x⁵ dx", "answer": "区间对称 + 奇函数, 积分为 0。"}, {"question": "计算 ∫₋₃¹ x² dx", "answer": "区间不对称, 直接计算得 28/3。"}]}, {"id": "Q006", "subject": "Math", "question": "判断 $\\displaystyle\\int_{1}^{+\\infty}\\frac{1}{x^p}\\,dx$ 的收敛性。", "analysis": "\"被积函数趋于 0\"**只是必要条件，远非充分条件**。趋于 0 的速度不够快，积分仍可能发散（如 $p=1$ 时 $\\int_1^\\infty \\frac1x dx=\\ln x\\to\\infty$）。", "knowledge_points": [{"kp_id": "UNI_MATH_IMPROPER", "name": "反常积分收敛性判别"}], "error_types": ["ERR_CONCEPT"], "variants": [{"question": "判断 ∫₁^∞ ln x / x² dx 的收敛性", "answer": "当 x 充分大时 ln x/x² ≤ 1/x^{1.5}, p=1.5>1, 由比较判别法知收敛。"}, {"question": "判断 ∫₀¹ 1/x^q dx 的收敛性（瑕积分）", "answer": "q<1 收敛, q≥1 发散。"}]}, {"id": "Q007", "subject": "Math", "question": "已知 $z=f(x,y)$ 在 $(x_0,y_0)$ 处两个偏导数 $f_x,f_y$ 都存在，能否推出 $f$ 在该点可微？", "analysis": "一元函数中\"可导 ⇔ 可微\"，但多元函数中**偏导数存在既推不出连续，也推不出可微**。可微要求全增量能写成 $\\Delta z=A\\Delta x+B\\Delta y+o(\\rho)$，比\"两个方向偏导存在\"强得多。", "knowledge_points": [{"kp_id": "UNI_MATH_MULTI_DIFF", "name": "多元函数可微性条件"}], "error_types": ["ERR_CONCEPT"], "variants": [{"question": "f(x,y) = xy/(x²+y²) ((x,y)≠(0,0)), f(0,0)=0, 在(0,0)处偏导是否存在？是否可微？", "answer": "偏导存在（均为0）, 但 f 在 (0,0) 不连续, 故不可微。"}, {"question": "偏导数连续是可微的必要条件吗？", "answer": "不是。偏导数连续是可微的充分条件, 非必要。存在可微但偏导数不连续的函数。"}]}, {"id": "Q008", "subject": "Math", "question": "交换 $\\displaystyle\\int_{0}^{1}dx\\int_{x}^{1}f(x,y)\\,dy$ 的积分次序。", "analysis": "交换次序必须先由原式画出积分区域 $D:\\ 0\\le x\\le 1,\\ x\\le y\\le 1$，再从 $y$ 的角度看 $x$ 的范围。原错解没有真正重新确定区域边界。", "knowledge_points": [{"kp_id": "UNI_MATH_DOUBLE_INT", "name": "重积分交换次序"}], "error_types": ["ERR_METHOD"], "variants": [{"question": "交换 ∫₀² dx ∫ₓ₂²ˣ f(x,y) dy 的积分次序", "answer": "画图后, 交换为 ∫₀⁴ dy ∫_{max(0,y/2)}^{√y} f(x,y) dx, 需分段。"}, {"question": "交换 ∫₀¹ dy ∫₀ʸ f(x,y) dx 的积分次序", "answer": "交换后: ∫₀¹ dx ∫ₓ¹ f(x,y) dy。"}]}, {"id": "Q009", "subject": "Math", "question": "求幂级数 $\\displaystyle\\sum_{n=1}^{\\infty}\\frac{x^n}{n}$ 的收敛域。", "analysis": "收敛半径只给出**开区间** $(-R,R)$。**端点 $x=\\pm R$ 必须单独代入判断**，不能想当然地排除或包含。", "knowledge_points": [{"kp_id": "UNI_MATH_POWER_SERIES", "name": "幂级数收敛域"}], "error_types": ["ERR_GAP"], "variants": [{"question": "求 ∑_{n=1}^∞ x^n/n² 的收敛域", "answer": "R=1。两端点均收敛（p-级数 p=2>1）, 收敛域 [-1,1]。"}, {"question": "求 ∑_{n=1}^∞ n·x^n 的收敛域", "answer": "R=1。两端点通项不趋于零均发散, 收敛域 (-1,1)。"}]}, {"id": "Q010", "subject": "Math", "question": "解微分方程 $\\displaystyle\\frac{dy}{dx}=\\frac{y}{x+\\ln y}$（$y>0$）。", "analysis": "本题从 $y$ 角度看不是线性、也不是可分离；但若**把 $x$ 视为 $y$ 的函数**，方程化为 $$\\frac{dx}{dy}=\\frac{x+\\ln y}{y}=\\frac1y x+\\frac{\\ln y}{y},$$ 这正是关于 $x$ 的**一阶线性微分方程**（未知函数是 $x(y)$）。", "knowledge_points": [{"kp_id": "UNI_MATH_ODE", "name": "一阶微分方程解法选择"}], "error_types": ["ERR_METHOD", "ERR_CONCEPT"], "variants": [{"question": "解 dy/dx = 1/(x+y)", "answer": "令 u = x+y, 化为可分离变量 u/(u+1) du = dx。"}, {"question": "解 (y²-6x)·dy/dx + 2y = 0", "answer": "把 x 当未知函数, 化为一阶线性, 解得 x = C·y³ + y²/2。"}]}],
+  totalMistakes: 10,
+};
+
+// Error type label map (CN) for client-side rendering
+window.__ERR_LABELS_CN__ = {"ERR_CONCEPT": "概念混淆", "ERR_CALC": "计算失误", "ERR_READ": "审题不清", "ERR_METHOD": "方法错误", "ERR_GAP": "知识盲区", "ERR_FORMAT": "解题不规范", "ERR_PSYCH": "考试心理因素"};
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+
+function parseQuestionIds(itemsStr, totalMistakes) {
+  // Accepts forms like:
+  //   "Q1-Q10（初次分析）"             -> [Q1..Q10]
+  //   "Q5, Q9（易错题，先复习）"        -> [Q5, Q9]
+  //   "全部10题（第一轮全面复习 ...）"  -> all mistake ids (in original order)
+  //   "Q4, Q8, Q10（中值定理 ...）"     -> [Q4, Q8, Q10]
+  if (!itemsStr) return [];
+  const ids = [];
+  // 1. range like Q1-Q10 (or with en/em dashes)
+  const rangeRe = /Q\s*(\d+)\s*[-–—]\s*Q\s*(\d+)/i;
+  const rangeMatch = itemsStr.match(rangeRe);
+  if (rangeMatch) {
+    const a = parseInt(rangeMatch[1], 10);
+    const b = parseInt(rangeMatch[2], 10);
+    const lo = Math.min(a, b);
+    const hi = Math.max(a, b);
+    for (let i = lo; i <= hi; i++) ids.push('Q' + i);
+  }
+  // 2. individual Q5, Q9 (skip those already inside a range)
+  const singleRe = /Q\s*(\d+)(?!\s*[-–—])/gi;
+  let m;
+  while ((m = singleRe.exec(itemsStr)) !== null) {
+    const id = 'Q' + m[1];
+    if (!ids.includes(id)) ids.push(id);
+  }
+  // 3. "全部N题" -> all mistakes in order
+  if (ids.length === 0) {
+    const allRe = /全部\s*(\d+)\s*题/;
+    const allMatch = itemsStr.match(allRe);
+    const n = allMatch ? parseInt(allMatch[1], 10) : (totalMistakes || 0);
+    for (let i = 1; i <= n; i++) ids.push('Q' + i);
+  }
+  return ids;
+}
+
+function lookupMistakes(ids) {
+  const all = window.__REVIEW_DATA__.mistakes || [];
+  return ids.map(id => all.find(m => String(m.id) === String(id))).filter(Boolean);
+}
+
+function escapeHtml(s) {
+  if (s == null) return '';
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function renderReviewItem(m) {
+  const errLabels = window.__ERR_LABELS_CN__ || {};
+  // Error types
+  const errs = (m.error_types || []).map(et => {
+    const label = errLabels[et] || et;
+    return '<span style="font-size:11px;padding:2px 6px;border-radius:4px;background:#E8DAEF;color:#6C3483;margin-right:4px;">' + escapeHtml(label) + '</span>';
+  }).join('');
+  // Knowledge points
+  const kps = (m.knowledge_points || []).map(kp => {
+    const name = (typeof kp === 'object' && kp) ? (kp.name || kp.kp_id || JSON.stringify(kp)) : String(kp);
+    return '<span style="font-size:11px;padding:2px 6px;border-radius:4px;background:#FDEBD0;color:#E67E22;margin-right:4px;margin-bottom:4px;display:inline-block;">' + escapeHtml(name) + '</span>';
+  }).join('');
+  // Variants
+  let variantsHtml = '';
+  const variants = m.variants || [];
+  if (variants.length) {
+    variantsHtml = '<div class="review-item-variants-title">同类练习题</div>';
+    variants.forEach((v, i) => {
+      let qText = '', aText = '';
+      if (typeof v === 'object' && v) {
+        qText = v.question || '';
+        aText = v.answer || '';
+      } else {
+        qText = String(v);
+      }
+      variantsHtml += '<div class="review-variant">'
+        + '<strong>' + (i + 1) + '.</strong> ' + escapeHtml(qText)
+        + (aText ? '<span class="review-variant-answer">参考答案：' + escapeHtml(aText) + '</span>' : '')
+        + '</div>';
+    });
+  }
+  return ''
+    + '<div class="review-item">'
+    +   '<div class="review-item-header">'
+    +     '<span class="review-item-id">#' + escapeHtml(m.id || '') + '</span>'
+    +     '<span>' + errs + '</span>'
+    +   '</div>'
+    +   '<div class="review-item-question">' + escapeHtml(m.question || '') + '</div>'
+    +   '<div class="review-item-analysis"><strong>错因分析：</strong>' + escapeHtml(m.analysis || '') + '</div>'
+    +   (kps ? '<div style="margin-bottom:8px;">' + kps + '</div>' : '')
+    +   variantsHtml
+    + '</div>';
+}
+
+function openReviewModal(idx) {
+  const entry = (window.__REVIEW_DATA__ && window.__REVIEW_DATA__.schedule) ? window.__REVIEW_DATA__.schedule[idx] : null;
+  if (!entry) return;
+  const ids = parseQuestionIds(entry.items, window.__REVIEW_DATA__.totalMistakes);
+  const mistakes = lookupMistakes(ids);
+
+  document.getElementById('modalDate').textContent = entry.date;
+  document.getElementById('modalSubtitle').textContent = '第 ' + entry.day + ' 天 · 涉及 ' + ids.length + ' 道题';
+
+  const body = document.getElementById('modalBody');
+  if (mistakes.length === 0) {
+    // Fallback: show the raw items string
+    body.innerHTML = '<div class="review-empty">该日无详细题目数据<br><span style="font-size:12px;color:var(--text-secondary);">' + escapeHtml(entry.items) + '</span></div>';
+  } else {
+    // Aggregate all knowledge points across the day's questions
+    const kpMap = new Map();
+    mistakes.forEach(m => {
+      (m.knowledge_points || []).forEach(kp => {
+        if (typeof kp === 'object' && kp) {
+          const key = kp.kp_id || kp.name;
+          if (key) kpMap.set(key, kp.name || key);
+        } else {
+          kpMap.set(String(kp), String(kp));
+        }
+      });
+    });
+    const kpChips = Array.from(kpMap.values())
+      .map(name => '<span class="review-kp-chip">' + escapeHtml(name) + '</span>')
+      .join('');
+    const kpBlock = kpChips
+      ? '<div class="review-kp-chips"><span class="kp-chip-label">涉及知识点：</span>' + kpChips + '</div>'
+      : '';
+    const itemsHtml = mistakes.map(renderReviewItem).join('');
+    body.innerHTML = kpBlock + itemsHtml;
+  }
+
+  document.getElementById('reviewModal').classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeModal(ev) {
+  // Allow closing on overlay click or close button
+  if (ev && ev.target && ev.target.id !== 'reviewModal' && !ev.target.classList.contains('modal-close')) return;
+  document.getElementById('reviewModal').classList.remove('active');
+  document.body.style.overflow = '';
+}
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeModal();
+});
+
+
+// Error Type Pie Chart
+new Chart(document.getElementById('errorPieChart'), {
+  type: 'doughnut',
+  data: {
+    labels: ["方法错误", "概念混淆", "审题不清", "知识盲区"],
+    datasets: [{
+      data: [7, 6, 1, 1],
+      backgroundColor: ["#3498DB", "#E74C3C", "#2ECC71", "#F39C12"],
+      borderWidth: 1,
+      borderColor: '#fff'
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: true,
+    plugins: {
+      legend: { position: 'bottom', labels: { padding: 16, usePointStyle: true } }
+    }
+  }
+});
+
+
+// Error Bar Chart (horizontal, sorted by count)
+new Chart(document.getElementById('errorBarChart'), {
+  type: 'bar',
+  data: {
+    labels: ["方法错误", "概念混淆", "审题不清", "知识盲区"],
+    datasets: [{
+      label: '错误次数',
+      data: [7, 6, 1, 1],
+      backgroundColor: ["#3498DB", "#E74C3C", "#2ECC71", "#F39C12"],
+      borderRadius: 4,
+    }]
+  },
+  options: {
+    indexAxis: 'y',
+    responsive: true,
+    maintainAspectRatio: true,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        callbacks: {
+          label: function(ctx) { return '错误次数：' + ctx.parsed.x; }
+        }
+      }
+    },
+    scales: {
+      x: { beginAtZero: true, ticks: { stepSize: 1, precision: 0 }, grid: { color: '#ECF0F1' } },
+      y: { grid: { display: false } }
+    }
+  }
+});
+
+
+// Knowledge Point Error Chart
+new Chart(document.getElementById('kpBarChart'), {
+  type: 'bar',
+  data: {
+    labels: ["极限与等价无穷小", "数列极限与洛必达法则", "导数定义与分段函数可导性", "中值定理（罗尔定理）", "定积分对称性", "反常积分收敛性判别", "多元函数可微性条件", "重积分交换次序", "幂级数收敛域", "一阶微分方程解法选择"],
+    datasets: [{
+      label: 'Error Count',
+      data: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+      backgroundColor: '#3498DB',
+      borderRadius: 4,
+    }]
+  },
+  options: {
+    indexAxis: 'y',
+    responsive: true,
+    maintainAspectRatio: true,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { beginAtZero: true, ticks: { stepSize: 1 }, grid: { color: '#ECF0F1' } },
+      y: { grid: { display: false } }
+    }
+  }
+});
+
+
+// Knowledge Point Radar Chart
+new Chart(document.getElementById('kpRadarChart'), {
+  type: 'radar',
+  data: {
+    labels: ["极限与等价无穷小", "数列极限与洛必达法则", "导数定义与分段函数可导性", "中值定理（罗尔定理）", "定积分对称性", "反常积分收敛性判别", "多元函数可微性条件", "重积分交换次序"],
+    datasets: [{
+      label: 'Weakness Level',
+      data: [1, 1, 1, 1, 1, 1, 1, 1],
+      backgroundColor: 'rgba(52, 152, 219, 0.15)',
+      borderColor: '#3498DB',
+      borderWidth: 2,
+      pointBackgroundColor: '#3498DB',
+      pointRadius: 4,
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: true,
+    scales: {
+      r: {
+        beginAtZero: true,
+        max: 3,
+        ticks: { stepSize: 1 },
+        grid: { color: '#ECF0F1' }
+      }
+    },
+    plugins: { legend: { display: false } }
+  }
+});
+
+
+// Retention Curve
+new Chart(document.getElementById('retentionChart'), {
+  type: 'line',
+  data: {
+    labels: [0, 1, 2, 3, 4, 5, 6, 7, 10, 15, 20, 30, 45, 60],
+    datasets: [{
+      label: '预计保持率',
+      data: [1.0, 0.97, 0.95, 0.93, 0.91, 0.89, 0.87, 0.85, 0.81, 0.74, 0.68, 0.58, 0.43, 0.32],
+      borderColor: '#27AE60',
+      backgroundColor: 'rgba(39, 174, 96, 0.08)',
+      borderWidth: 2,
+      fill: true,
+      tension: 0.3,
+      pointRadius: 1,
+    }, {
+      label: '目标线 (85%)',
+      data: Array(14).fill(0.85),
+      borderColor: '#E74C3C',
+      borderWidth: 1,
+      borderDash: [5, 5],
+      fill: false,
+      pointRadius: 0,
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: true,
+    scales: {
+      x: { title: { display: true, text: '天数' } },
+      y: {
+        min: 0,
+        max: 1,
+        ticks: { callback: function(v) { return (v*100).toFixed(0) + '%'; } },
+        title: { display: true, text: '记忆保持率' }
+      }
+    },
+    plugins: {
+      legend: { position: 'bottom', labels: { padding: 16, usePointStyle: true } }
+    }
+  }
+});
+
+</script>
+
+</body>
+</html>

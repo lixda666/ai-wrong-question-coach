@@ -1,0 +1,262 @@
+{
+  "version": 1,
+  "created_at": "2026-07-16T09:45:05.965419",
+  "mistakes": [
+    {
+      "id": "Q001",
+      "question": "求 $\\displaystyle\\lim_{x\\to 0}\\frac{\\tan x-\\sin x}{x^3}$。",
+      "subject": "Math",
+      "stage": "大学",
+      "student_answer": "当 $x\\to 0$ 时，$\\tan x\\sim x$，$\\sin x\\sim x$，所以 $$\\lim_{x\\to 0}\\frac{\\tan x-\\sin x}{x^3}=\\lim_{x\\to 0}\\frac{x-x}{x^3}=0.$$",
+      "correct_answer": "$$\\tan x-\\sin x=\\sin x\\!\\left(\\frac{1}{\\cos x}-1\\right)=\\sin x\\cdot\\frac{1-\\cos x}{\\cos x}.$$ 当 $x\\to 0$ 时，$\\sin x\\sim x$，$1-\\cos x\\sim \\dfrac{x^2}{2}$，$\\cos x\\to 1$，故分子 $\\sim x\\cdot\\dfrac{x^2/2}{1}=\\dfrac{x^3}{2}$，所以 $$\\lim_{x\\to 0}\\frac{\\tan x-\\sin x}{x^3}=\\frac12.$$",
+      "difficulty": "medium",
+      "knowledge_points": [
+        {
+          "kp_id": "UNI_MATH_LIMIT_EQ",
+          "name": "极限与等价无穷小"
+        }
+      ],
+      "error_types": [
+        "ERR_METHOD",
+        "ERR_CONCEPT"
+      ],
+      "analysis": "等价无穷小替换**只能在乘除因子中整体替换**。本题分子是\"相减\"的差式，直接替换会把高阶小量全部抹掉，导致结果错误。这里恰好 $x-x=0$，掩盖了真实极限。",
+      "variants": [],
+      "added_date": "2026-07-16",
+      "last_reviewed": null,
+      "review_count": 0,
+      "mastered": false,
+      "tags": []
+    },
+    {
+      "id": "Q002",
+      "question": "设 $a_n=n(\\sqrt[n]{a}-1)\\,(a>0)$，求 $\\displaystyle\\lim_{n\\to\\infty}a_n$。",
+      "subject": "Math",
+      "stage": "大学",
+      "student_answer": "把 $n$ 当连续变量，令 $f(x)=x(a^{1/x}-1)$，对 $x\\to\\infty$ 用洛必达，得到 $\\ln a$，于是极限为 $\\ln a$。",
+      "correct_answer": "令 $t=\\dfrac1n\\to 0$，则 $$a_n=\\frac{a^{t}-1}{t}\\xrightarrow{t\\to 0}(a^t)'\\big|_{t=0}=\\ln a.$$ 或用 $a^{1/n}=e^{\\frac{\\ln a}{n}}=1+\\dfrac{\\ln a}{n}+o\\!\\left(\\dfrac1n\\right)$，代入得 $a_n\\to\\ln a$。",
+      "difficulty": "medium",
+      "knowledge_points": [
+        {
+          "kp_id": "UNI_MATH_SEQ_LIMIT",
+          "name": "数列极限与洛必达法则"
+        }
+      ],
+      "error_types": [
+        "ERR_METHOD"
+      ],
+      "analysis": "洛必达法则要求函数在某区间上**可导且为连续变量**。数列 $n$ 是离散的，不能直接对离散下标求导。本题\"蒙对\"了结果，但过程不严谨，遇到真正需要这一步的题目就会出错。",
+      "variants": [],
+      "added_date": "2026-07-16",
+      "last_reviewed": null,
+      "review_count": 0,
+      "mastered": false,
+      "tags": []
+    },
+    {
+      "id": "Q003",
+      "question": "设 $f(x)=\\begin{cases}x^2\\sin\\frac1x,&x\\neq 0\\\\0,&x=0\\end{cases}$，判断 $f(x)$ 在 $x=0$ 处是否可导。",
+      "subject": "Math",
+      "stage": "大学",
+      "student_answer": "用导数公式，$f'(x)=2x\\sin\\frac1x-\\cos\\frac1x\\,(x\\neq 0)$，因为 $\\cos\\frac1x$ 在 $0$ 处无极限，所以 $f(x)$ 在 $x=0$ 不可导。",
+      "correct_answer": "按定义 $$f'(0)=\\lim_{x\\to 0}\\frac{f(x)-f(0)}{x-0}=\\lim_{x\\to 0}\\frac{x^2\\sin\\frac1x}{x}=\\lim_{x\\to 0}x\\sin\\frac1x=0.$$ 所以 $f(x)$ 在 $x=0$ 处**可导**，且 $f'(0)=0$。",
+      "difficulty": "medium",
+      "knowledge_points": [
+        {
+          "kp_id": "UNI_MATH_DERIV_DEF",
+          "name": "导数定义与分段函数可导性"
+        }
+      ],
+      "error_types": [
+        "ERR_METHOD",
+        "ERR_CONCEPT"
+      ],
+      "analysis": "在分界点处，**必须先回到导数定义**计算，不能直接套用非分界点处的导函数表达式。上面那个 $f'(x)$ 在 $x\\to 0$ 时确实发散，但它描述的是 $x\\neq0$ 处的导数，与 $x=0$ 处是否可导无关。",
+      "variants": [],
+      "added_date": "2026-07-16",
+      "last_reviewed": null,
+      "review_count": 0,
+      "mastered": false,
+      "tags": []
+    },
+    {
+      "id": "Q004",
+      "question": "证明存在 $\\xi\\in(0,1)$ 使 $f'(\\xi)=0$，其中 $f(x)=\\sqrt{x}\\,(0\\le x\\le 1)$。",
+      "subject": "Math",
+      "stage": "大学",
+      "student_answer": "由罗尔定理，$f(0)=f(1)=0$（此处误算），故存在 $\\xi\\in(0,1)$ 使 $f'(\\xi)=0$。",
+      "correct_answer": "先核对三个条件：① 连续性——$f$ 在 $[0,1]$ 连续 ✓；② 可导性——$f$ 在 $(0,1)$ 可导，但在 $x=0$ 右导数不存在 ✗；③ 端点值——$f(0)\\neq f(1)$ ✗。两个关键条件都不满足，故不能用罗尔定理，实际上不存在这样的 $\\xi$。",
+      "difficulty": "medium",
+      "knowledge_points": [
+        {
+          "kp_id": "UNI_MATH_MVT",
+          "name": "中值定理（罗尔定理）"
+        }
+      ],
+      "error_types": [
+        "ERR_METHOD",
+        "ERR_CONCEPT"
+      ],
+      "analysis": "罗尔定理要求 $f(a)=f(b)$ 且 $f$ 在 $[a,b]$ 连续、$(a,b)$ 可导。本题 $f(0)=0\\neq f(1)=1$，**端点值根本不相等**，罗尔定理不适用；且 $f$ 在 $x=0$ 处导数不存在（切线垂直）。结论本身也不成立（$f'(x)=\\frac1{2\\sqrt x}>0$）。",
+      "variants": [],
+      "added_date": "2026-07-16",
+      "last_reviewed": null,
+      "review_count": 0,
+      "mastered": false,
+      "tags": []
+    },
+    {
+      "id": "Q005",
+      "question": "计算 $\\displaystyle\\int_{-1}^{2}x^3\\,dx$。",
+      "subject": "Math",
+      "stage": "大学",
+      "student_answer": "因为 $x^3$ 是奇函数，奇函数在对称区间积分为 0，所以原积分 $=0$。",
+      "correct_answer": "直接计算 $$\\int_{-1}^{2}x^3\\,dx=\\left[\\frac{x^4}{4}\\right]_{-1}^{2}=\\frac{16}{4}-\\frac{1}{4}=\\frac{15}{4}.$$ 或拆为 $\\int_{-1}^{1}x^3\\,dx+\\int_{1}^{2}x^3\\,dx=0+\\frac{15}{4}-\\frac14=\\frac{15}{4}$。",
+      "difficulty": "easy",
+      "knowledge_points": [
+        {
+          "kp_id": "UNI_MATH_DEFINT_SYM",
+          "name": "定积分对称性"
+        }
+      ],
+      "error_types": [
+        "ERR_READ",
+        "ERR_METHOD"
+      ],
+      "analysis": "奇偶函数在对称区间上的积分性质，要求**积分区间关于原点对称**（即 $[-a,a]$）。本题区间是 $[-1,2]$，并不对称，不能直接套用。",
+      "variants": [],
+      "added_date": "2026-07-16",
+      "last_reviewed": null,
+      "review_count": 0,
+      "mastered": false,
+      "tags": []
+    },
+    {
+      "id": "Q006",
+      "question": "判断 $\\displaystyle\\int_{1}^{+\\infty}\\frac{1}{x^p}\\,dx$ 的收敛性。",
+      "subject": "Math",
+      "stage": "大学",
+      "student_answer": "因为 $\\frac1{x^p}\\to0$（当 $p>0$），被积函数趋于 0，所以积分收敛。",
+      "correct_answer": "- 当 $p\\neq1$ 时，$\\displaystyle\\int_1^{+\\infty}\\frac{1}{x^p}dx=\\left[\\frac{x^{1-p}}{1-p}\\right]_1^{+\\infty}$，收敛当且仅当 $1-p<0$，即 $p>1$； - 当 $p=1$ 时，积分 $=\\lim_{b\\to\\infty}\\ln b=+\\infty$，发散。 综上：**$p>1$ 收敛，$p\\le 1$ 发散**（即 $p$-积分判别法）。",
+      "difficulty": "medium",
+      "knowledge_points": [
+        {
+          "kp_id": "UNI_MATH_IMPROPER",
+          "name": "反常积分收敛性判别"
+        }
+      ],
+      "error_types": [
+        "ERR_CONCEPT"
+      ],
+      "analysis": "\"被积函数趋于 0\"**只是必要条件，远非充分条件**。趋于 0 的速度不够快，积分仍可能发散（如 $p=1$ 时 $\\int_1^\\infty \\frac1x dx=\\ln x\\to\\infty$）。",
+      "variants": [],
+      "added_date": "2026-07-16",
+      "last_reviewed": null,
+      "review_count": 0,
+      "mastered": false,
+      "tags": []
+    },
+    {
+      "id": "Q007",
+      "question": "已知 $z=f(x,y)$ 在 $(x_0,y_0)$ 处两个偏导数 $f_x,f_y$ 都存在，能否推出 $f$ 在该点可微？",
+      "subject": "Math",
+      "stage": "大学",
+      "student_answer": "偏导数存在说明沿 $x,y$ 方向变化率都有，所以一定可微。",
+      "correct_answer": "偏导数存在**不是**可微的充分条件。要证可微，需验证 $$\\lim_{\\rho\\to 0}\\frac{\\Delta z-f_x\\Delta x-f_y\\Delta y}{\\rho}=0\\quad(\\rho=\\sqrt{\\Delta x^2+\\Delta y^2}).$$ 只有偏导数**连续**时，才能推出可微（这是充分条件，非必要）。",
+      "difficulty": "medium",
+      "knowledge_points": [
+        {
+          "kp_id": "UNI_MATH_MULTI_DIFF",
+          "name": "多元函数可微性条件"
+        }
+      ],
+      "error_types": [
+        "ERR_CONCEPT"
+      ],
+      "analysis": "一元函数中\"可导 ⇔ 可微\"，但多元函数中**偏导数存在既推不出连续，也推不出可微**。可微要求全增量能写成 $\\Delta z=A\\Delta x+B\\Delta y+o(\\rho)$，比\"两个方向偏导存在\"强得多。",
+      "variants": [],
+      "added_date": "2026-07-16",
+      "last_reviewed": null,
+      "review_count": 0,
+      "mastered": false,
+      "tags": []
+    },
+    {
+      "id": "Q008",
+      "question": "交换 $\\displaystyle\\int_{0}^{1}dx\\int_{x}^{1}f(x,y)\\,dy$ 的积分次序。",
+      "subject": "Math",
+      "stage": "大学",
+      "student_answer": "直接写成 $\\displaystyle\\int_{0}^{1}dy\\int_{x}^{1}f(x,y)\\,dx$。（错误：$x$ 仍出现在积分限中）",
+      "correct_answer": "区域 $D$ 是直线 $y=x$、$y=1$、$x=0$ 围成的三角形。改为先对 $x$ 积分： $$0\\le y\\le 1,\\quad 0\\le x\\le y.$$ 故 $$\\int_{0}^{1}dx\\int_{x}^{1}f(x,y)\\,dy=\\int_{0}^{1}dy\\int_{0}^{y}f(x,y)\\,dx.$$",
+      "difficulty": "medium",
+      "knowledge_points": [
+        {
+          "kp_id": "UNI_MATH_DOUBLE_INT",
+          "name": "重积分交换次序"
+        }
+      ],
+      "error_types": [
+        "ERR_METHOD"
+      ],
+      "analysis": "交换次序必须先由原式画出积分区域 $D:\\ 0\\le x\\le 1,\\ x\\le y\\le 1$，再从 $y$ 的角度看 $x$ 的范围。原错解没有真正重新确定区域边界。",
+      "variants": [],
+      "added_date": "2026-07-16",
+      "last_reviewed": null,
+      "review_count": 0,
+      "mastered": false,
+      "tags": []
+    },
+    {
+      "id": "Q009",
+      "question": "求幂级数 $\\displaystyle\\sum_{n=1}^{\\infty}\\frac{x^n}{n}$ 的收敛域。",
+      "subject": "Math",
+      "stage": "大学",
+      "student_answer": "收敛半径 $R=1$，所以收敛域是 $(-1,1)$。",
+      "correct_answer": "由比值法得 $R=1$。 - $x=1$ 时，级数为 $\\sum\\frac1n$（调和级数），发散； - $x=-1$ 时，级数为 $\\sum\\frac{(-1)^n}{n}$（交错调和级数），收敛。 故收敛域为 $[-1,1)$。",
+      "difficulty": "easy",
+      "knowledge_points": [
+        {
+          "kp_id": "UNI_MATH_POWER_SERIES",
+          "name": "幂级数收敛域"
+        }
+      ],
+      "error_types": [
+        "ERR_GAP"
+      ],
+      "analysis": "收敛半径只给出**开区间** $(-R,R)$。**端点 $x=\\pm R$ 必须单独代入判断**，不能想当然地排除或包含。",
+      "variants": [],
+      "added_date": "2026-07-16",
+      "last_reviewed": null,
+      "review_count": 0,
+      "mastered": false,
+      "tags": []
+    },
+    {
+      "id": "Q010",
+      "question": "解微分方程 $\\displaystyle\\frac{dy}{dx}=\\frac{y}{x+\\ln y}$（$y>0$）。",
+      "subject": "Math",
+      "stage": "大学",
+      "student_answer": "看成可分离变量，写成 $\\frac{dy}{y}=\\frac{dx}{x+\\ln y}$，但右边仍含 $y$，无法分离，于是卡住；又误当一阶线性方程对 $y$ 求解，也因 $\\ln y$ 卡住。",
+      "correct_answer": "令未知函数为 $x(y)$，标准形 $x'-\\frac1y x=\\frac{\\ln y}{y}$。积分因子 $\\mu(y)=e^{\\int -\\frac1y dy}=e^{-\\ln y}=\\frac1y$。两边乘 $\\frac1y$： $$\\frac{d}{dy}\\!\\left(\\frac{x}{y}\\right)=\\frac{\\ln y}{y^2}.$$ 积分得 $\\frac{x}{y}=\\int\\frac{\\ln y}{y^2}dy=-\\frac{\\ln y+1}{y}+C$，故 $$x=-(\\ln y+1)+Cy.$$",
+      "difficulty": "hard",
+      "knowledge_points": [
+        {
+          "kp_id": "UNI_MATH_ODE",
+          "name": "一阶微分方程解法选择"
+        }
+      ],
+      "error_types": [
+        "ERR_METHOD",
+        "ERR_CONCEPT"
+      ],
+      "analysis": "本题从 $y$ 角度看不是线性、也不是可分离；但若**把 $x$ 视为 $y$ 的函数**，方程化为 $$\\frac{dx}{dy}=\\frac{x+\\ln y}{y}=\\frac1y x+\\frac{\\ln y}{y},$$ 这正是关于 $x$ 的**一阶线性微分方程**（未知函数是 $x(y)$）。",
+      "variants": [],
+      "added_date": "2026-07-16",
+      "last_reviewed": null,
+      "review_count": 0,
+      "mastered": false,
+      "tags": []
+    }
+  ],
+  "id_counter": 10
+}

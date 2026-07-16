@@ -1,0 +1,46 @@
+{
+  "title": "AI Wrong Question Coach Analysis Report",
+  "subject": "Mathematics",
+  "stage": "Senior High",
+  "generated_at": "2026-07-16",
+  "statistics": {
+    "items": [
+      {"label": "Total Mistakes", "value": "0"},
+      {"label": "Knowledge Points Involved", "value": "0"},
+      {"label": "Review Sessions Scheduled", "value": "0"},
+      {"label": "Coverage Period", "value": "--"}
+    ]
+  },
+  "error_distribution": {},
+  "error_by_subject": {},
+  "kp_error_counts": {},
+  "retention_curve": [
+    {"day": 0, "retention": 1.0},
+    {"day": 1, "retention": 0.97},
+    {"day": 2, "retention": 0.95},
+    {"day": 3, "retention": 0.93},
+    {"day": 4, "retention": 0.91},
+    {"day": 5, "retention": 0.89},
+    {"day": 6, "retention": 0.87},
+    {"day": 7, "retention": 0.85},
+    {"day": 10, "retention": 0.81},
+    {"day": 15, "retention": 0.74},
+    {"day": 20, "retention": 0.68},
+    {"day": 30, "retention": 0.58},
+    {"day": 45, "retention": 0.43},
+    {"day": 60, "retention": 0.32}
+  ],
+  "mistakes": [],
+  "schedule_statistics": {
+    "items": [
+      {"label": "Total Review Sessions", "value": "0"},
+      {"label": "Avg Daily Items", "value": "0"},
+      {"label": "Schedule Start", "value": "--"},
+      {"label": "Schedule End", "value": "--"}
+    ]
+  },
+  "schedule_timeline": [],
+  "suggestions": [],
+  "target_retention": 85,
+  "difficulty_distribution": {"easy": 0, "medium": 0, "hard": 0}
+}
